@@ -1,0 +1,31 @@
+# Python Virtual Environment
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Environment & Secrets
+.env
+
+# Generated Test Artifacts & Large Videos
+static/violations/*.jpg
+static/bg_*.jpg
+# Uncomment the line below if your .mp4 videos are over 50MB:
+# videos/*.mp4
+
+# IDE / OS Files
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Unused / Temporary Files
+B032310363 TAY SHER YANG_FYP Source Codes.zip
+Database.sql
+plot_fuzzy.py
+seed_data.py
+test_ai.py
+trips.trips.xml
+camera_config.json
+videos/
+yolov8m.pt
+yolov8n.pt

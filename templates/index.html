@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Intersection Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Hide scrollbars for a clean app-like feel */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #4B5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6B7280; }
+    </style>
+</head>
+<body class="bg-[#0f172a] text-white h-screen overflow-hidden flex flex-col font-sans">
+
+    <!-- ========================================== -->
+    <!-- TOP NAVIGATION BAR -->
+    <!-- ========================================== -->
+    <div class="flex items-center justify-between p-3 bg-gray-900 border-b border-gray-800 shadow-md z-40 relative">
+        <div class="flex items-center gap-4">
+            <!-- Hamburger Menu Button -->
+            <button onclick="toggleSidebar()" class="text-gray-400 hover:text-white focus:outline-none p-2 rounded hover:bg-gray-800 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+            </button>
+            <h1 id="pageTitle" class="text-xl font-bold text-gray-100 tracking-wide uppercase">📡 Live Intersection Matrix</h1>
+        </div>
+        
+        <div class="flex items-center gap-2">
+            <!-- NEW: DYNAMIC LOCATION BADGE -->
+            <span id="activeIntersectionLabel" class="text-[10px] font-bold text-indigo-400 border border-indigo-500/30 px-3 py-1.5 rounded bg-indigo-950/20 mr-2 uppercase tracking-widest">📍 Jalan Tun Perak (Cross)</span>
+
+            <!-- System Status -->
+            <div class="flex items-center gap-3 bg-green-900/20 px-3 py-1.5 rounded border border-green-800/50">
+                <div class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_#22c55e] animate-pulse"></div>
+                <span class="text-[10px] font-mono text-green-400 font-bold tracking-widest">AI CORE ONLINE</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- HIDDEN SIDEBAR MENU -->
+    <!-- ========================================== -->
+    <div id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-gray-900 border-r border-gray-800 shadow-2xl z-50 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col">
+        
+        <!-- Close Button & Logo -->
+        <div class="p-6 border-b border-gray-800 text-center relative bg-gray-950">
+            <button onclick="toggleSidebar()" class="absolute top-2 right-2 text-gray-500 hover:text-white p-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <div class="text-5xl mb-3 drop-shadow-lg">🚦</div>
+            <h1 class="text-lg font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 uppercase">Smart Traffic</h1>
+            <p class="text-[10px] text-gray-500 font-mono mt-1">COMMAND CENTER V1.0</p>
+        </div>
+
+        <!-- Navigation Links -->
+        <nav class="flex-grow p-4 space-y-3 mt-2">
+            <!-- GLOBAL INTERSECTION SELECTOR -->
+            <div class="mb-4 bg-gray-950 p-2.5 rounded border border-gray-800">
+                <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-wider">Active Intersection</label>
+                <select id="globalIntersectionSelect" onchange="changeActiveIntersection(this.value)" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-xs font-bold text-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <option value="tun_perak">Jalan Tun Perak (Cross)</option>
+                    <option value="hang_tuah">Jalan Hang Tuah (T-Junc)</option>
+                </select>
+            </div>
+
+            <button onclick="switchTab('dashboard', '📡 Live Intersection Matrix')" id="nav-dashboard" class="w-full flex items-center gap-3 p-3 rounded-lg bg-indigo-600 text-white font-bold transition-all shadow-[0_0_15px_rgba(79,70,229,0.5)] border border-indigo-500">
+                <span class="text-xl">📺</span> Live Matrix
+            </button>
+            <button onclick="switchTab('simulation', '🗺️ Digital Twin & AI Terminal')" id="nav-simulation" class="w-full flex items-center gap-3 p-3 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white font-bold transition-all border border-transparent">
+                <span class="text-xl">🗺️</span> Digital Twin
+            </button>
+            <button onclick="switchTab('setup', '⚙️ System Calibration Hub')" id="nav-setup" class="w-full flex items-center gap-3 p-3 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white font-bold transition-all border border-transparent">
+                <span class="text-xl">⚙️</span> Calibration
+            </button>
+            <!-- NEW: SANDBOX SIMULATOR BUTTON -->
+            <button onclick="switchTab('sandbox', '🎮 Manual Traffic Simulation')" id="nav-sandbox" class="w-full flex items-center gap-3 p-3 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white font-bold transition-all border border-transparent">
+                <span class="text-xl">🎮</span> Sandbox Sim
+            </button>
+        </nav>
+    </div>
+
+    <!-- Overlay to click out of sidebar -->
+    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden opacity-0 transition-opacity duration-300"></div>
+
+    <!-- ========================================== -->
+    <!-- MAIN CONTENT AREA -->
+    <!-- ========================================== -->
+    <div class="flex-grow relative overflow-hidden bg-[#111827]">
+
+        <!-- ========================================== -->
+        <!-- SCREEN 1: LIVE DASHBOARD -->
+        <!-- ========================================== -->
+        <div id="screen-dashboard" class="absolute inset-0 w-full h-full p-2 flex flex-col transition-opacity duration-300 opacity-100">
+            <div class="flex gap-2 flex-grow h-full">
+                <!-- 2x2 Video Matrix (70% Width) -->
+                <div class="w-[70%] grid grid-cols-2 grid-rows-2 gap-2">
+                    <div class="bg-black border border-gray-700 rounded-lg relative flex items-center justify-center shadow-lg overflow-hidden">
+                        <div class="absolute top-0 left-0 bg-blue-600 px-2 py-1 text-[10px] font-bold rounded-br-lg z-10">NORTH</div>
+                        <div id="dash-light-north" class="absolute top-2 right-2 flex gap-1 bg-gray-900/80 p-1.5 rounded-full border border-gray-600 z-10 scale-75 origin-top-right">
+                            <div class="w-4 h-4 rounded-full bg-gray-600"></div><div class="w-4 h-4 rounded-full bg-gray-600"></div><div class="w-4 h-4 rounded-full bg-gray-600"></div>
+                        </div>
+                        <img src="/video_feed/tun_perak/north" onerror="this.style.display='none'" class="w-full h-full object-contain">
+                    </div>
+                    <div class="bg-black border border-gray-700 rounded-lg relative flex items-center justify-center shadow-lg overflow-hidden">
+                        <div class="absolute top-0 left-0 bg-green-600 px-2 py-1 text-[10px] font-bold rounded-br-lg z-10">SOUTH</div>
+                        <div id="dash-light-south" class="absolute top-2 right-2 flex gap-1 bg-gray-900/80 p-1.5 rounded-full border border-gray-600 z-10 scale-75 origin-top-right">
+                            <div class="w-4 h-4 rounded-full bg-gray-600"></div><div class="w-4 h-4 rounded-full bg-gray-600"></div><div class="w-4 h-4 rounded-full bg-gray-600"></div>
+                        </div>
+                        <img src="/video_feed/tun_perak/south" onerror="this.style.display='none'" class="w-full h-full object-contain">
+                    </div>
+                    <div class="bg-black border border-gray-700 rounded-lg relative flex items-center justify-center shadow-lg overflow-hidden">
+                        <div class="absolute top-0 left-0 bg-yellow-600 px-2 py-1 text-[10px] font-bold rounded-br-lg z-10 text-gray-900">EAST</div>
+                        <div id="dash-light-east" class="absolute top-2 right-2 flex gap-1 bg-gray-900/80 p-1.5 rounded-full border border-gray-600 z-10 scale-75 origin-top-right">
+                            <div class="w-4 h-4 rounded-full bg-gray-600"></div><div class="w-4 h-4 rounded-full bg-gray-600"></div><div class="w-4 h-4 rounded-full bg-gray-600"></div>
+                        </div>
+                        <img src="/video_feed/tun_perak/east" onerror="this.style.display='none'" class="w-full h-full object-contain">
+                    </div>
+                    <!-- West Camera (Labled for Hiding) -->
+                    <div id="dash-container-west" class="bg-black border border-gray-700 rounded-lg relative flex items-center justify-center shadow-lg overflow-hidden">
+                        <div class="absolute top-0 left-0 bg-red-600 px-2 py-1 text-[10px] font-bold rounded-br-lg z-10">WEST</div>
+                        <div id="dash-light-west" class="absolute top-2 right-2 flex gap-1 bg-gray-900/80 p-1.5 rounded-full border border-gray-600 z-10 scale-75 origin-top-right">
+                            <div class="w-3 h-3 rounded-full bg-gray-600"></div><div class="w-3 h-3 rounded-full bg-gray-600"></div><div class="w-3 h-3 rounded-full bg-gray-600"></div>
+                        </div>
+                        <img src="/video_feed/tun_perak/west" onerror="this.style.display='none'" class="w-full h-full object-contain">
+                    </div>
+                </div>
+
+                <!-- Analytics Board (30% Width) -->
+                <div class="w-[30%] bg-gray-800 border border-gray-700 rounded-lg p-3 flex flex-col gap-3 shadow-xl">
+                    <h2 class="text-sm font-bold text-center border-b border-gray-600 pb-1 text-gray-300 uppercase tracking-widest">Real-Time Analysis</h2>
+                    
+                    <div class="bg-gray-900 p-2 rounded border border-gray-700 shadow-inner">
+                        <div class="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                            <div class="bg-blue-900/20 p-1.5 rounded border border-blue-800/50">
+                                <p class="text-blue-400 font-bold mb-1 border-b border-blue-800/50 leading-none pb-0.5">NORTH</p>
+                                <div class="grid grid-cols-2 gap-x-1 gap-y-0.5 text-gray-400">
+                                    <div>🚗 Car: <span id="n-car" class="text-white">0</span></div><div>🏍️ Mot: <span id="n-mot" class="text-white">0</span></div>
+                                    <div>🚚 Trk: <span id="n-trk" class="text-white">0</span></div><div>🚌 Bus: <span id="n-bus" class="text-white">0</span></div>
+                                    <div>🚐 Van: <span id="n-van" class="text-white">0</span></div><div>🚑 Emg: <span id="n-emg" class="text-white">0</span></div>
+                                </div>
+                            </div>
+                            <div class="bg-green-900/20 p-1.5 rounded border border-green-800/50">
+                                <p class="text-green-400 font-bold mb-1 border-b border-green-800/50 leading-none pb-0.5">SOUTH</p>
+                                <div class="grid grid-cols-2 gap-x-1 gap-y-0.5 text-gray-400">
+                                    <div>🚗 Car: <span id="s-car" class="text-white">0</span></div><div>🏍️ Mot: <span id="s-mot" class="text-white">0</span></div>
+                                    <div>🚚 Trk: <span id="s-trk" class="text-white">0</span></div><div>🚌 Bus: <span id="s-bus" class="text-white">0</span></div>
+                                    <div>🚐 Van: <span id="s-van" class="text-white">0</span></div><div>🚑 Emg: <span id="s-emg" class="text-white">0</span></div>
+                                </div>
+                            </div>
+                            <div class="bg-yellow-900/20 p-1.5 rounded border border-yellow-800/50">
+                                <p class="text-yellow-500 font-bold mb-1 border-b border-yellow-800/50 leading-none pb-0.5">EAST</p>
+                                <div class="grid grid-cols-2 gap-x-1 gap-y-0.5 text-gray-400">
+                                    <div>🚗 Car: <span id="e-car" class="text-white">0</span></div><div>🏍️ Mot: <span id="e-mot" class="text-white">0</span></div>
+                                    <div>🚚 Trk: <span id="e-trk" class="text-white">0</span></div><div>🚌 Bus: <span id="e-bus" class="text-white">0</span></div>
+                                    <div>🚐 Van: <span id="e-van" class="text-white">0</span></div><div>🚑 Emg: <span id="e-emg" class="text-white">0</span></div>
+                                </div>
+                            </div>
+                            <div id="dash-detail-west" class="bg-red-900/20 p-1.5 rounded border border-red-800/50">
+                                <p class="text-red-400 font-bold mb-1 border-b border-red-800/50 leading-none pb-0.5">WEST</p>
+                                <div class="grid grid-cols-2 gap-x-1 gap-y-0.5 text-gray-400">
+                                    <div>🚗 Car: <span id="w-car" class="text-white">0</span></div><div>🏍️ Mot: <span id="w-mot" class="text-white">0</span></div>
+                                    <div>🚚 Trk: <span id="w-trk" class="text-white">0</span></div><div>🚌 Bus: <span id="w-bus" class="text-white">0</span></div>
+                                    <div>🚐 Van: <span id="w-van" class="text-white">0</span></div><div>🚑 Emg: <span id="w-emg" class="text-white">0</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-900 p-2 rounded border border-gray-700 shadow-inner flex-grow relative min-h-[150px]">
+                        <canvas id="trafficChart"></canvas>
+                    </div>
+
+                    <div class="bg-red-950/20 p-2 rounded border border-red-900/50 shadow-inner h-28">
+                        <h3 class="text-[10px] font-bold text-red-500 mb-1 border-b border-red-900/50 pb-0.5 tracking-wider">🚨 RECENT VIOLATIONS</h3>
+                        <ul id="violationList" class="text-[10px] font-mono text-red-300/80 leading-relaxed overflow-hidden">
+                            <li>Waiting for data...</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 2: DIGITAL TWIN SIMULATION (Optimized & Protected) -->
+        <!-- ========================================== -->
+        <div id="screen-simulation" class="absolute inset-0 w-full h-full p-3 flex flex-col opacity-0 pointer-events-none transition-opacity duration-300 overflow-hidden">
+            
+            <div class="flex gap-4 flex-grow overflow-hidden w-full h-[calc(100vh-8rem)]">
+                
+                <!-- LEFT SIDE: 2D Canvas Map Container (60% Width, h-full, center aligned) -->
+                <div class="w-[60%] h-full bg-gray-800 border border-gray-700 rounded-lg relative overflow-hidden flex items-center justify-center shadow-inner">
+                    
+                    <!-- THE VIEW TOGGLE SWITCH (Moved to top-right corner to prevent overlap!) -->
+                    <div class="absolute top-3 right-3 bg-gray-950/90 border border-gray-700 px-1 py-1 rounded-full flex gap-1 z-30 shadow-lg text-[10px]">
+                        <button onclick="setView('map')" id="btnViewMap" class="bg-indigo-600 px-3 py-1 rounded-full font-bold transition text-white shadow">🗺️ 2D Map</button>
+                        <button onclick="setView('charts')" id="btnViewCharts" class="text-gray-400 hover:text-white px-3 py-1 rounded-full font-bold transition">📈 Analytics</button>
+                    </div>
+
+                    <!-- VIEW 1: THE 2D SIMULATION MAP (Locked to perfect 1:1 square ratio) -->
+                    <div id="viewMap" class="h-full aspect-square relative flex items-center justify-center">
+                        
+                        <div class="absolute top-3 left-3 bg-gray-950 px-3 py-1.5 text-xs font-mono rounded border border-gray-700 z-10 shadow-lg">
+                            <span class="text-emerald-400">●</span> Vehicle <span class="text-red-500 ml-3">●</span> Emergency
+                        </div>
+                        
+                        <!-- Dashboard-style Traffic Lights (Precisely aligned to the lanes) -->
+                        <div id="sim-light-north" class="absolute top-[22%] left-[26%] flex gap-1 bg-gray-950 p-1 rounded-full border border-gray-700 z-10 shadow-2xl scale-90">
+                            <div class="w-3.5 h-3.5 rounded-full bg-gray-700"></div><div class="w-3.5 h-3.5 rounded-full bg-gray-700"></div><div class="w-3.5 h-3.5 rounded-full bg-gray-700"></div>
+                        </div>
+                        <div id="sim-light-south" class="absolute bottom-[22%] right-[26%] flex gap-1 bg-gray-950 p-1 rounded-full border border-gray-700 z-10 shadow-2xl scale-90">
+                            <div class="w-3.5 h-3.5 rounded-full bg-gray-700"></div><div class="w-3.5 h-3.5 rounded-full bg-gray-700"></div><div class="w-3.5 h-3.5 rounded-full bg-gray-700"></div>
+                        </div>
+                        <div id="sim-light-east" class="absolute top-[26%] right-[22%] flex flex-col gap-1 bg-gray-950 p-1 rounded-full border border-gray-700 z-10 shadow-2xl scale-90">
+                            <div class="w-3.5 h-3.5 rounded-full bg-gray-700"></div><div class="w-3.5 h-3.5 rounded-full bg-gray-700"></div><div class="w-3.5 h-3.5 rounded-full bg-gray-700"></div>
+                        </div>
+                        <!-- West Light Container (Wrapper for Hiding) -->
+                        <div id="light-container-west">
+                            <div id="sim-light-west" class="absolute bottom-[26%] left-[22%] flex flex-col gap-1 bg-gray-950 p-1 rounded-full border border-gray-700 z-10 shadow-2xl scale-90">
+                                <div class="w-3.5 h-3.5 rounded-full bg-gray-700"></div><div class="w-3.5 h-3.5 rounded-full bg-gray-700"></div><div class="w-3.5 h-3.5 rounded-full bg-gray-700"></div>
+                            </div>
+                        </div>
+
+                        <!-- Manual Emergency Buttons (Locked to the edge of the square) -->
+                        <button id="btn-north" onclick="triggerEmergency('north')" class="absolute top-3 left-1/2 -translate-x-1/2 bg-red-600/80 hover:bg-red-500 text-white px-3 py-1.5 rounded shadow-lg text-[10px] font-bold z-20 transition border border-red-500 w-32 tracking-wider">🚨 FORCE NORTH</button>
+                        <button id="btn-south" onclick="triggerEmergency('south')" class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-red-600/80 hover:bg-red-500 text-white px-3 py-1.5 rounded shadow-lg text-[10px] font-bold z-20 transition border border-red-500 w-32 tracking-wider">🚨 FORCE SOUTH</button>
+                        <button id="btn-east" onclick="triggerEmergency('east')" class="absolute right-3 top-1/2 -translate-y-1/2 bg-red-600/80 hover:bg-red-500 text-white px-3 py-1.5 rounded shadow-lg text-[10px] font-bold z-20 transition border border-red-500 w-32 tracking-wider">🚨 FORCE EAST</button>
+                        <!-- West Force Button (Wrapper for Hiding) -->
+                        <div id="btn-container-west">
+                            <button id="btn-west" onclick="triggerEmergency('west')" class="absolute left-3 top-1/2 -translate-y-1/2 bg-red-600/80 hover:bg-red-500 text-white px-3 py-1.5 rounded shadow-lg text-[10px] font-bold z-20 transition border border-red-500 w-32 tracking-wider">🚨 FORCE WEST</button>
+                        </div>
+
+                        <canvas id="simCanvas" width="800" height="800" class="w-full h-full object-fill bg-[#1e293b]"></canvas>
+                    </div>
+
+                    <!-- VIEW 2: THE HISTORICAL ANALYTICS CHART -->
+                    <div id="viewCharts" class="w-full h-full p-8 hidden flex flex-col bg-[#1f2937]">
+                        <div class="flex-grow relative w-full h-full">
+                            <canvas id="historyLineChart"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- RIGHT SIDE: Fuzzy Logic Terminal (Strictly 40% Width, 100% Height) -->
+                <div class="w-[40%] h-full bg-black border border-gray-700 rounded-lg flex flex-col overflow-hidden shadow-2xl font-mono text-sm">
+                    <!-- Live Queue Panel -->
+                    <div class="bg-gray-900 p-3 border-b border-gray-800">
+                        <h3 class="text-[10px] font-bold text-gray-500 mb-1 uppercase tracking-widest text-center">Live Waiting Queues</h3>
+                        <div class="grid grid-cols-4 gap-2 text-center">
+                            <div class="bg-black border border-gray-800 rounded py-1.5 shadow-inner">
+                                <div class="text-[9px] text-blue-500 font-bold">NORTH</div>
+                                <div id="q-north" class="text-xl text-gray-200 font-light">0</div>
+                            </div>
+                            <div class="bg-black border border-gray-800 rounded py-1.5 shadow-inner">
+                                <div class="text-[9px] text-green-500 font-bold">SOUTH</div>
+                                <div id="q-south" class="text-xl text-gray-200 font-light">0</div>
+                            </div>
+                            <div class="bg-black border border-gray-800 rounded py-1.5 shadow-inner">
+                                <div class="text-[9px] text-yellow-600 font-bold">EAST</div>
+                                <div id="q-east" class="text-xl text-gray-200 font-light">0</div>
+                            </div>
+                            <div id="q-container-west" class="bg-black border border-gray-800 rounded py-1.5 shadow-inner">
+                                <div class="text-[9px] text-red-500 font-bold">WEST</div>
+                                <div id="q-west" class="text-xl text-gray-200 font-light">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Terminal Output Window -->
+                    <div id="terminalOutput" class="p-4 overflow-y-auto flex-grow text-gray-300 space-y-1.5 text-xs bg-[#0a0a0a]">
+                        <div class="text-emerald-500 font-bold">root@traffic-brain:~# ./start_system.sh</div>
+                        <div class="text-blue-400">Initializing skfuzzy logic controller... [OK]</div>
+                        <div class="text-blue-400">Connecting to Live Camera APIs... [OK]</div>
+                        <div class="text-gray-500 italic">Awaiting fuzzy logic data stream...</div>
+                    </div>
+
+                    <!-- Terminal Footer (Live Timer) -->
+                    <div class="bg-gray-900 border-t border-gray-800 p-3 flex justify-between items-center text-xs tracking-wider">
+                        <div class="text-gray-400">PHASE: <span id="termPhase" class="font-bold text-white text-sm ml-2">--</span></div>
+                        <div class="text-gray-400">TIMER: <span id="termTimer" class="font-bold text-yellow-500 text-xl ml-2">00</span><span class="text-gray-600">s</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 3: SETUP & CALIBRATION (Dark Mode) -->
+        <!-- ========================================== -->
+        <div id="screen-setup" class="absolute inset-0 w-full h-full p-4 flex flex-col opacity-0 pointer-events-none transition-opacity duration-300 overflow-y-auto bg-gray-900 text-gray-200">
+            
+            <div class="mb-4 p-4 bg-gray-800 border border-gray-700 rounded-lg flex justify-between items-center shadow-lg">
+                <div class="w-1/3 pr-4">
+                    <label class="block text-gray-400 font-bold mb-1 text-xs uppercase tracking-wide">1. Select Camera:</label>
+                    <select id="cameraSelect" class="block w-full border border-gray-300 rounded px-3 py-2 bg-gray-900 text-white font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none transition">
+                        <option value="north">⬆️ North Camera</option>
+                        <option value="south">⬇️ South Camera</option>
+                        <option value="east">➡️ East Camera</option>
+                        <option value="west">⬅️ West Camera</option>
+                    </select>
+                </div>
+                <div class="w-1/3">
+                    <label class="block text-gray-400 font-bold mb-1 text-xs uppercase tracking-wide">2. Upload Video to Snap Background:</label>
+                    <input type="file" id="videoUpload" accept="video/mp4" class="block w-full text-xs text-gray-400 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 transition cursor-pointer"/>
+                </div>
+                <div class="w-1/3 flex gap-3 pl-4 border-l border-gray-700" id="distanceInputs">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase">Line A to B (m)</label>
+                        <input type="number" id="distAB" value="15" class="border border-gray-600 rounded px-2 py-1 w-full text-sm font-mono text-center bg-gray-900 text-blue-400">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-purple-400 mb-1 uppercase">Calib Box (m)</label>
+                        <input type="number" id="distCalib" value="20" class="border border-purple-500/50 bg-gray-900 rounded px-2 py-1 w-full text-sm font-mono text-center text-purple-400 shadow-[0_0_8px_rgba(168,85,247,0.2)]">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 mb-1 uppercase">Lane Width (m)</label>
+                        <input type="number" id="distWidth" value="3.5" class="border border-gray-600 rounded px-2 py-1 w-full text-sm font-mono text-center bg-gray-900 text-gray-300">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-4 items-start flex-grow">
+                <!-- Left Side: Canvas Area -->
+                <div class="relative w-[70%] aspect-video border-4 border-gray-700 rounded-lg bg-black overflow-hidden shadow-2xl" id="videoContainer">
+                    <img id="bgImage" src="" class="absolute top-0 left-0 w-full h-full object-fill bg-gray-900" alt="Waiting for background image...">
+                    <video id="videoPlayer" class="absolute top-0 left-0 w-full h-full object-fill hidden" controls></video>
+                    <canvas id="drawCanvas" width="1280" height="720" class="absolute top-0 left-0 w-full h-full cursor-crosshair"></canvas>
+                </div>
+
+                <!-- Right Side: Toolbox -->
+                <div class="w-[30%] bg-gray-800 p-5 border border-gray-700 rounded-lg flex flex-col shadow-xl">
+                    <h3 class="text-sm font-bold text-gray-300 mb-3 uppercase tracking-wider border-b border-gray-700 pb-2">Drawing Tools</h3>
+                    <div class="flex flex-col gap-2 mb-4">
+                        <button id="toolZone" class="tool-btn bg-green-600 text-white px-4 py-2.5 rounded text-sm text-left font-bold shadow-sm ring-2 ring-green-400 ring-offset-1 ring-offset-gray-800 transition">🟩 1. Mask Zone</button>
+                        <button id="toolCalib" class="tool-btn bg-purple-600 text-white px-4 py-2.5 rounded text-sm text-left font-bold shadow-sm opacity-60 hover:opacity-100 transition">🟪 2. Calib Box</button>
+                        <button id="toolLineA" class="tool-btn bg-blue-600 text-white px-4 py-2.5 rounded text-sm text-left font-bold shadow-sm opacity-60 hover:opacity-100 transition">🟦 3. Line A</button>
+                        <button id="toolLineB" class="tool-btn bg-cyan-600 text-white px-4 py-2.5 rounded text-sm text-left font-bold shadow-sm opacity-60 hover:opacity-100 transition">🟦 4. Line B</button>
+                        <button id="toolStopLine" class="tool-btn bg-red-600 text-white px-4 py-2.5 rounded text-sm text-left font-bold shadow-sm opacity-60 hover:opacity-100 transition">🟥 5. Stop Line</button>
+                    </div>
+                    <button id="clearBtn" class="bg-gray-700 text-gray-300 px-4 py-2 rounded shadow-sm hover:bg-gray-600 hover:text-white mb-4 text-xs font-bold transition border border-gray-600">🗑️ CLEAR TOOL</button>
+                    
+                    <h4 class="font-bold text-gray-500 text-[10px] mt-auto uppercase">JSON Payload (<span id="jsonCamLabel" class="text-indigo-400">North</span>)</h4>
+                    <pre id="coordOutput" class="bg-black text-emerald-400 p-3 rounded text-[10px] mt-1 h-32 overflow-auto font-mono shadow-inner border border-gray-700">{}</pre>
+
+                    <button id="saveConfigBtn" class="bg-indigo-600 text-white px-4 py-3 rounded shadow hover:bg-indigo-500 mt-4 font-black text-sm uppercase tracking-wider transition border border-indigo-400">💾 Save Configuration</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 4: MANUAL TRAFFIC SANDBOX (Screen 4) -->
+        <!-- ========================================== -->
+        <div id="screen-sandbox" class="absolute inset-0 w-full h-full p-3 flex flex-col opacity-0 pointer-events-none transition-opacity duration-300 overflow-hidden">
+            
+            <div class="flex gap-4 h-[calc(100vh-6rem)] w-full">
+                
+                <!-- LEFT SIDE: Interactive 2D Sandbox Map (60% Width) -->
+                <div class="w-[60%] h-full bg-gray-800 border border-gray-700 rounded-lg relative overflow-hidden flex items-center justify-center shadow-inner">
+
+                    <!-- Sandbox Traffic Lights (Synced via JS) -->
+                    <div id="sand-light-north" class="absolute top-10 left-[35%] flex gap-1 bg-gray-950 p-1.5 rounded-full border border-gray-700 z-10 shadow-2xl scale-110">
+                        <div class="w-4 h-4 rounded-full bg-gray-600"></div><div class="w-4 h-4 rounded-full bg-gray-600"></div><div class="w-4 h-4 rounded-full bg-gray-600"></div>
+                    </div>
+                    <div id="sand-light-south" class="absolute bottom-10 right-[35%] flex gap-1 bg-gray-950 p-1.5 rounded-full border border-gray-700 z-10 shadow-2xl scale-110">
+                        <div class="w-4 h-4 rounded-full bg-gray-600"></div><div class="w-4 h-4 rounded-full bg-gray-600"></div><div class="w-4 h-4 rounded-full bg-gray-600"></div>
+                    </div>
+                    <div id="sand-light-east" class="absolute top-[35%] right-10 flex flex-col gap-1 bg-gray-950 p-1.5 rounded-full border border-gray-700 z-10 shadow-2xl scale-110">
+                        <div class="w-4 h-4 rounded-full bg-gray-600"></div><div class="w-4 h-4 rounded-full bg-gray-600"></div><div class="w-4 h-4 rounded-full bg-gray-600"></div>
+                    </div>
+                    <!-- West Sandbox Light (Labeled for Hiding on T-Junc) -->
+                    <div id="sand-light-container-west">
+                        <div id="sand-light-west" class="absolute bottom-[35%] left-10 flex flex-col gap-1 bg-gray-950 p-1.5 rounded-full border border-gray-700 z-10 shadow-2xl scale-110">
+                            <div class="w-4 h-4 rounded-full bg-gray-600"></div><div class="w-4 h-4 rounded-full bg-gray-600"></div><div class="w-4 h-4 rounded-full bg-gray-600"></div>
+                        </div>
+                    </div>
+
+                    <!-- Sandbox Canvas -->
+                    <canvas id="sandboxCanvas" width="800" height="800" class="w-full h-full object-fill bg-[#1e293b]"></canvas>
+                </div>
+
+                <!-- RIGHT SIDE: Sandbox Controls & Expanded Terminal (40% Width) -->
+                <div class="w-[40%] h-full bg-gray-800 border border-gray-700 rounded-lg p-3 flex flex-col gap-3 shadow-2xl">
+                    <h3 class="text-sm font-bold text-center border-b border-gray-700 pb-1 text-gray-300 uppercase tracking-widest">⚙️ Sandbox Control Panel</h3>
+                    
+                    <!-- 1. COMBINED QUEUE & VEHICLE SPAWNER PANEL -->
+                    <div class="bg-gray-900 p-2.5 rounded-lg border border-gray-700 shadow-inner flex flex-col gap-1.5">
+                        <h4 class="text-[10px] font-bold text-indigo-400 border-b border-gray-800 pb-1 uppercase tracking-wider">Queue & Lane Spawners</h4>
+                        
+                        <div class="flex flex-col gap-1.5 font-mono">
+                            <!-- North Road Row -->
+                            <div id="sand-row-north" class="bg-black/50 p-1.5 rounded border border-blue-900/40 flex items-center justify-between">
+                                <div class="text-[10px] text-blue-400 font-bold">NORTH (QUEUE: <span id="sand-q-north">0</span>)</div>
+                                <div class="flex gap-1.5">
+                                    <button onclick="spawnVehicle('north', false)" class="bg-gray-800 hover:bg-gray-700 text-[10px] text-white px-2 py-0.5 rounded font-bold border border-gray-600 transition">🚗 SPAWN</button>
+                                    <button onclick="spawnVehicle('north', true)" class="bg-red-950/60 border border-red-700/60 hover:bg-red-800 text-[10px] text-red-300 px-2 py-0.5 rounded font-bold transition">🚑 EMG</button>
+                                </div>
+                            </div>
+                            <!-- South Road Row -->
+                            <div id="sand-row-south" class="bg-black/50 p-1.5 rounded border border-green-900/40 flex items-center justify-between">
+                                <div class="text-[10px] text-green-400 font-bold">SOUTH (QUEUE: <span id="sand-q-south">0</span>)</div>
+                                <div class="flex gap-1.5">
+                                    <button onclick="spawnVehicle('south', false)" class="bg-gray-800 hover:bg-gray-700 text-[10px] text-white px-2 py-0.5 rounded font-bold border border-gray-600 transition">🚗 SPAWN</button>
+                                    <button onclick="spawnVehicle('south', true)" class="bg-red-950/60 border border-red-700/60 hover:bg-red-800 text-[10px] text-red-300 px-2 py-0.5 rounded font-bold transition">🚑 EMG</button>
+                                </div>
+                            </div>
+                            <!-- East Road Row -->
+                            <div id="sand-row-east" class="bg-black/50 p-1.5 rounded border border-yellow-900/40 flex items-center justify-between">
+                                <div class="text-[10px] text-yellow-500 font-bold">EAST (QUEUE: <span id="sand-q-east">0</span>)</div>
+                                <div class="flex gap-1.5">
+                                    <button onclick="spawnVehicle('east', false)" class="bg-gray-800 hover:bg-gray-700 text-[10px] text-white px-2 py-0.5 rounded font-bold border border-gray-600 transition">🚗 SPAWN</button>
+                                    <button onclick="spawnVehicle('east', true)" class="bg-red-950/60 border border-red-700/60 hover:bg-red-800 text-[10px] text-red-300 px-2 py-0.5 rounded font-bold transition">🚑 EMG</button>
+                                </div>
+                            </div>
+                            <!-- West Road Row -->
+                            <div id="sand-row-west" class="bg-black/50 p-1.5 rounded border border-red-900/40 flex items-center justify-between">
+                                <div class="text-[10px] text-red-500 font-bold">WEST (QUEUE: <span id="sand-q-west">0</span>)</div>
+                                <div class="flex gap-1.5">
+                                    <button onclick="spawnVehicle('west', false)" class="bg-gray-800 hover:bg-gray-700 text-[10px] text-white px-2 py-0.5 rounded font-bold border border-gray-600 transition">🚗 SPAWN</button>
+                                    <button onclick="spawnVehicle('west', true)" class="bg-red-950/60 border border-red-700/60 hover:bg-red-800 text-[10px] text-red-300 px-2 py-0.5 rounded font-bold transition">🚑 EMG</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. EXPANDED SANDBOX TERMINAL (Fills all remaining vertical space!) -->
+                    <div class="bg-black border border-gray-700 rounded-lg flex flex-col overflow-hidden flex-grow shadow-2xl font-mono text-sm">
+                        <div class="bg-gray-900 text-gray-400 px-3 py-1.5 border-b border-gray-800 flex justify-between text-xs">
+                            <span>sandbox@traffic-brain:~#</span>
+                            <span class="text-green-400 font-bold animate-pulse">SANDBOX ONLINE</span>
+                        </div>
+                        <div id="sandTerminalOutput" class="p-3 overflow-y-auto flex-grow text-gray-300 space-y-1 text-xs bg-[#0a0a0a]">
+                            <div class="text-blue-400">Sandbox Fuzzy engine initialized... [OK]</div>
+                            <div class="text-gray-500 italic">Waiting for vehicle spawn events...</div>
+                        </div>
+                        <!-- Terminal Footer (Live Phase & Timer) -->
+                        <div class="bg-gray-900 border-t border-gray-800 p-2.5 flex justify-between items-center text-xs tracking-wider">
+                            <div class="text-gray-400">PHASE: <span id="sandTermPhase" class="font-bold text-white text-sm ml-2">--</span></div>
+                            <div class="text-gray-400">TIMER: <span id="sandTermTimer" class="font-bold text-yellow-500 text-xl ml-2">00</span><span class="text-gray-600">s</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MASTER JAVASCRIPT LOGIC -->
+    <!-- ========================================== -->
+        
+    <script>
+        // --------------------------------------------------------
+        // TAB SWITCHING (Sidebar & Hamburger logic)
+        // --------------------------------------------------------
+        function switchTab(tabName, title) {
+            document.getElementById('pageTitle').innerText = title;
+            const screens = ['dashboard', 'simulation', 'setup', 'sandbox'];
+            
+            screens.forEach(screen => {
+                const el = document.getElementById(`screen-${screen}`);
+                const nav = document.getElementById(`nav-${screen}`);
+                if (screen === tabName) {
+                    el.classList.remove('opacity-0', 'pointer-events-none');
+                    el.classList.add('opacity-100');
+                    nav.className = "w-full flex items-center gap-3 p-3 rounded-lg bg-indigo-600 text-white font-bold transition-all shadow-[0_0_15px_rgba(79,70,229,0.5)] border border-indigo-500";
+                } else {
+                    el.classList.add('opacity-0', 'pointer-events-none');
+                    el.classList.remove('opacity-100');
+                    nav.className = "w-full flex items-center gap-3 p-3 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white font-bold transition-all border border-transparent";
+                }
+            });
+
+            // Close sidebar automatically on mobile/after clicking
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (!sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden', 'opacity-0');
+            }
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+                setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 300);
+            }
+        }
+
+        // ==========================================
+        // DYNAMIC INTERSECTION SWITCHER & DROPDOWN HELPER
+        // ==========================================
+        let activeIntersection = 'tun_perak'; // Default
+
+        async function changeActiveIntersection(interId) {
+            activeIntersection = interId;
+            try {
+                // 1. Tell Python to switch AI streams & reset stats
+                const response = await fetch(`/api/set_active/${interId}`, { method: 'POST' });
+                const result = await response.json();
+                if (!response.ok || result.status === 'error') throw new Error(result.message || 'Override request failed');
+                
+                terminal.innerHTML = `<div class="text-indigo-400">[SYSTEM] Switched Active Intersection to: ${interId.toUpperCase()}</div>`;
+                
+                // --- FIX: UPDATE THE TOP-RIGHT GLOWING LOCATION BADGE ---
+                const locationBadge = document.getElementById('activeIntersectionLabel');
+                if (locationBadge) {
+                    if (interId === 'tun_perak') {
+                        locationBadge.innerText = "📍 Jalan Tun Perak (Cross)";
+                        locationBadge.className = "text-[10px] font-bold text-indigo-400 border border-indigo-500/30 px-3 py-1.5 rounded bg-indigo-950/20 mr-2 uppercase tracking-widest";
+                    } else {
+                        locationBadge.innerText = "📍 Jalan Hang Tuah (T-Junc)";
+                        locationBadge.className = "text-[10px] font-bold text-teal-400 border border-teal-500/30 px-3 py-1.5 rounded bg-teal-950/20 mr-2 uppercase tracking-widest shadow-[0_0_10px_rgba(45,212,191,0.1)]";
+                    }
+                }
+
+                // 2. dynamically update the Setup dropdown
+                updateCameraSelectOptions();
+
+                // 3. Hide/Show West Camera elements based on T-Junction vs Crossroad
+                const dashWest = document.getElementById('dash-container-west');
+                const dashDetailWest = document.getElementById('dash-detail-west');
+                const simWestLight = document.getElementById('light-container-west');
+                const simWestBtn = document.getElementById('btn-container-west');
+                const qWest = document.getElementById('q-container-west');
+                const sandRowWest = document.getElementById('sand-row-west');
+
+                if (interId === 'hang_tuah') {
+                    // T-junction has no west approach; discard any previously simulated west-lane vehicles.
+                    if (typeof sandVehicles !== 'undefined') sandVehicles.west = [];
+                    // Hide West completely across all pages!
+                    if (dashWest) dashWest.classList.add('hidden');
+                    if (dashDetailWest) dashDetailWest.classList.add('hidden');
+                    if (simWestLight) simWestLight.classList.add('hidden');
+                    if (simWestBtn) simWestBtn.classList.add('hidden');
+                    if (qWest) qWest.classList.add('hidden');
+                    if (sandRowWest) sandRowWest.classList.add('hidden');
+                    // --- DYNAMIC CHART LABELS (Remove West!) ---
+                    trafficChart.data.labels = ['North', 'South', 'East'];
+                } else {
+                    if (dashWest) dashWest.classList.remove('hidden');
+                    if (dashDetailWest) dashDetailWest.classList.remove('hidden');
+                    if (simWestLight) simWestLight.classList.remove('hidden');
+                    if (simWestBtn) simWestBtn.classList.remove('hidden');
+                    if (qWest) qWest.classList.remove('hidden');
+                    if (sandRowWest) sandRowWest.classList.remove('hidden');
+                    // --- DYNAMIC CHART LABELS (Restore West!) ---
+                    trafficChart.data.labels = ['North', 'South', 'East', 'West'];
+                }
+
+                // 4. Force Dashboard video sources to reload with the new paths!
+                document.querySelector('#screen-dashboard img[src*="north"]').src = `/video_feed/${interId}/north?t=${new Date().getTime()}`;
+                document.querySelector('#screen-dashboard img[src*="south"]').src = `/video_feed/${interId}/south?t=${new Date().getTime()}`;
+                document.querySelector('#screen-dashboard img[src*="east"]').src = `/video_feed/${interId}/east?t=${new Date().getTime()}`;
+                if (interId !== 'hang_tuah') {
+                    document.querySelector('#screen-dashboard img[src*="west"]').src = `/video_feed/${interId}/west?t=${new Date().getTime()}`;
+                }
+
+                drawMap();
+            } catch (e) {
+                console.error("Failed to switch intersection", e);
+            }
+        }
+
+        function updateCameraSelectOptions() {
+            const select = document.getElementById('cameraSelect');
+            if(!select) return;
+            const currentVal = select.value;
+            select.innerHTML = '';
+
+            const options = [
+                { value: 'north', text: '⬆️ North Camera' },
+                { value: 'south', text: '⬇️ South Camera' },
+                { value: 'east', text: '➡️ East Camera' }
+            ];
+
+            // Only add West if we are on the 4-way Crossroad!
+            if (activeIntersection === 'tun_perak') {
+                options.push({ value: 'west', text: '⬅️ West Camera' });
+            }
+
+            options.forEach(opt => {
+                const el = document.createElement('option');
+                el.value = opt.value;
+                el.innerText = opt.text;
+                select.appendChild(el);
+            });
+
+            if (options.some(opt => opt.value === currentVal)) {
+                select.value = currentVal;
+            } else {
+                select.value = 'north';
+            }
+        }
+
+        function updateCameraSelectOptions() {
+            const select = document.getElementById('cameraSelect');
+            if(!select) return;
+            
+            const currentVal = select.value; // Save what they were currently looking at
+            select.innerHTML = ''; // Wipe out old options
+
+            const options = [
+                { value: 'north', text: '⬆️ North Camera' },
+                { value: 'south', text: '⬇️ South Camera' },
+                { value: 'east', text: '➡️ East Camera' }
+            ];
+
+            // Only add West if we are on the 4-way Crossroad!
+            if (activeIntersection === 'tun_perak') {
+                options.push({ value: 'west', text: '⬅️ West Camera' });
+            }
+
+            // Rebuild the HTML select options
+            options.forEach(opt => {
+                const el = document.createElement('option');
+                el.value = opt.value;
+                el.innerText = opt.text;
+                select.appendChild(el);
+            });
+
+            // Keep their previous selection if still valid, otherwise default to North
+            if (options.some(opt => opt.value === currentVal)) {
+                select.value = currentVal;
+            } else {
+                select.value = 'north';
+            }
+        }
+
+        // --------------------------------------------------------
+        // DASHBOARD & SIMULATION LOGIC (Live Fetch)
+        // --------------------------------------------------------
+        const ctxChart = document.getElementById('trafficChart').getContext('2d');
+        const trafficChart = new Chart(ctxChart, {
+            type: 'bar',
+            data: {
+                labels: ['North', 'South', 'East', 'West'],
+                datasets: [{
+                    data: [0, 0, 0, 0],
+                    backgroundColor: ['rgba(59, 130, 246, 0.8)', 'rgba(34, 197, 94, 0.8)', 'rgba(234, 179, 8, 0.8)', 'rgba(239, 68, 68, 0.8)'],
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, 
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#374151', drawBorder: false }, ticks: { color: '#9ca3af', font: {family: 'monospace', size: 10} } },
+                    x: { grid: { display: false }, ticks: { color: '#9ca3af', font: {weight: 'bold', size: 10} } }
+                }
+            }
+        });
+
+        const simCanvas = document.getElementById('simCanvas');
+        const simCtx = simCanvas.getContext('2d');
+        const cx = simCanvas.width / 2;
+        const cy = simCanvas.height / 2;
+        const roadWidth = 140; const laneWidth = roadWidth / 2;
+        const terminal = document.getElementById('terminalOutput');
+        let lastPhase = ""; let lastTimer = 0;
+
+        function getSafe(obj, key) { return obj[key] || 0; }
+        
+        function updateLightUI(cameraId, status, prefix) {
+            const lightBox = document.getElementById(`${prefix}-${cameraId}`);
+            if(!lightBox) return;
+            lightBox.children[0].className = "w-4 h-4 rounded-full bg-gray-700";
+            lightBox.children[1].className = "w-4 h-4 rounded-full bg-gray-700";
+            lightBox.children[2].className = "w-4 h-4 rounded-full bg-gray-700";
+
+            if (status === "RED") { lightBox.children[0].className = "w-4 h-4 rounded-full bg-red-500 shadow-[0_0_12px_#ef4444]"; } 
+            else if (status === "YELLOW") { lightBox.children[1].className = "w-4 h-4 rounded-full bg-yellow-500 shadow-[0_0_12px_#eab308]"; } 
+            else if (status === "GREEN" || status === "FLASH_GREEN") { lightBox.children[2].className = "w-4 h-4 rounded-full bg-green-500 shadow-[0_0_12px_#22c55e]"; }
+        }
+
+        function drawMap() {
+            simCtx.clearRect(0, 0, simCanvas.width, simCanvas.height);
+            simCtx.fillStyle = '#334155'; // Road color
+
+            // North-South road is always drawn
+            simCtx.fillRect(cx - roadWidth/2, 0, roadWidth, simCanvas.height);
+
+            // Draw West-East road based on the active intersection!
+            if (activeIntersection === 'hang_tuah') {
+                // T-Junction: East Road only starts from center and goes Right (West is erased!)
+                simCtx.fillRect(cx, cy - roadWidth/2, simCanvas.width/2, roadWidth);
+            } else {
+                // Crossroad: Full West-East road
+                simCtx.fillRect(0, cy - roadWidth/2, simCanvas.width, roadWidth);
+            }
+            
+            // Draw Center Intersection
+            simCtx.fillStyle = '#475569';
+            simCtx.fillRect(cx - roadWidth/2, cy - roadWidth/2, roadWidth, roadWidth);
+
+            // Draw Dashed Lane Dividers (Yellow)
+            simCtx.strokeStyle = '#FBBF24'; simCtx.lineWidth = 2; simCtx.setLineDash([20, 20]);
+            
+            // NS Divider
+            simCtx.beginPath(); simCtx.moveTo(cx, 0); simCtx.lineTo(cx, cy - roadWidth/2); simCtx.stroke();
+            simCtx.beginPath(); simCtx.moveTo(cx, cy + roadWidth/2); simCtx.lineTo(cx, simCanvas.height); simCtx.stroke();
+            
+            // EW Divider
+            if (activeIntersection !== 'hang_tuah') {
+                simCtx.beginPath(); simCtx.moveTo(0, cy); simCtx.lineTo(cx - roadWidth/2, cy); simCtx.stroke();
+            }
+            simCtx.beginPath(); simCtx.moveTo(cx + roadWidth/2, cy); simCtx.lineTo(simCanvas.width, cy); simCtx.stroke();
+            simCtx.setLineDash([]); 
+
+            // Draw Stop Lines (White Thick Lines)
+            simCtx.strokeStyle = '#F8FAFC'; simCtx.lineWidth = 6;
+            simCtx.beginPath(); simCtx.moveTo(cx - laneWidth, cy - roadWidth/2); simCtx.lineTo(cx, cy - roadWidth/2); simCtx.stroke(); // North
+            simCtx.beginPath(); simCtx.moveTo(cx, cy + roadWidth/2); simCtx.lineTo(cx + laneWidth, cy + roadWidth/2); simCtx.stroke(); // South
+            simCtx.beginPath(); simCtx.moveTo(cx + roadWidth/2, cy - laneWidth); simCtx.lineTo(cx + roadWidth/2, cy); simCtx.stroke(); // East
+            if (activeIntersection !== 'hang_tuah') {
+                simCtx.beginPath(); simCtx.moveTo(cx - roadWidth/2, cy); simCtx.lineTo(cx - roadWidth/2, cy + laneWidth); simCtx.stroke(); // West
+            }
+
+            // Draw Road Labels
+            simCtx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            simCtx.font = 'bold 40px sans-serif';
+            simCtx.textAlign = 'center';
+            simCtx.fillText('NORTH', cx, 60);
+            simCtx.fillText('SOUTH', cx, simCanvas.height - 30);
+            simCtx.fillText('EAST', simCanvas.width - 90, cy - 80);
+
+            if (activeIntersection !== 'hang_tuah') {
+                simCtx.save();
+                simCtx.translate(60, cy);
+                simCtx.rotate(-Math.PI/2);
+                simCtx.fillText('WEST', 0, 0);
+                simCtx.restore();
+            }
+        }
+
+        function drawVehicles(positions) {
+            const mapScale = 6; 
+            Object.keys(positions).forEach(cam => {
+                positions[cam].forEach(v => {
+                    if (v.x === undefined || v.y === undefined) return;
+                    let mapX, mapY;
+                    if (cam === 'north') { mapX = (cx - laneWidth/2) + (v.x / mapScale); mapY = (cy - roadWidth/2) - (v.y / mapScale); } 
+                    else if (cam === 'south') { mapX = (cx + laneWidth/2) - (v.x / mapScale); mapY = (cy + roadWidth/2) + (v.y / mapScale); } 
+                    else if (cam === 'east') { mapX = (cx + roadWidth/2) + (v.y / mapScale); mapY = (cy - laneWidth/2) + (v.x / mapScale); } 
+                    else if (cam === 'west') { mapX = (cx - roadWidth/2) - (v.y / mapScale); mapY = (cy + laneWidth/2) - (v.x / mapScale); }
+
+                    if (mapX > 0 && mapX < simCanvas.width && mapY > 0 && mapY < simCanvas.height) {
+                        simCtx.beginPath(); simCtx.arc(mapX, mapY, 7, 0, Math.PI * 2);
+                        simCtx.fillStyle = (v.class === 'Ambulance' || v.class === 'Fire_Truck') ? '#ef4444' : '#10b981';
+                        simCtx.shadowColor = simCtx.fillStyle; simCtx.shadowBlur = 8;
+                        simCtx.fill(); simCtx.shadowBlur = 0; 
+                        simCtx.fillStyle = '#FFFFFF'; simCtx.font = 'bold 10px sans-serif'; simCtx.textAlign = 'center';
+                        simCtx.fillText(v.id, mapX, mapY - 12);
+                    }
+                });
+            });
+        }
+
+        function addLog(text, color = "text-gray-400") {
+            const div = document.createElement('div');
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+            div.className = color;
+            div.innerHTML = `<span class="text-gray-500">[${time}]</span> ${text}`;
+            terminal.appendChild(div);
+            terminal.scrollTop = terminal.scrollHeight; 
+        }
+
+        let activeOverride = null;
+        async function triggerEmergency(cameraId) {
+            try {
+                const response = await fetch(`/api/trigger_emergency/${cameraId}`, { method: 'POST' });
+                const result = await response.json();
+                
+                // Reset all force button styles
+                ['north', 'south', 'east', 'west'].forEach(cam => {
+                    const btn = document.getElementById(`btn-${cam}`);
+                    if (btn) {
+                        btn.className = `absolute ${btn.className.split('absolute')[1].split('bg-')[0]} bg-red-600/80 hover:bg-red-500 text-white px-3 py-1.5 rounded shadow-lg text-[10px] font-bold z-20 transition border border-red-500 w-32 tracking-wider`;
+                        btn.innerText = `🚨 FORCE ${cam.toUpperCase()}`;
+                    }
+                });
+                
+                if (activeOverride === cameraId) {
+                    // --- CANCELED: GREEN BACKGROUND HIGHLIGHT ---
+                    activeOverride = null; 
+                    addLog('-----------------------------------', 'text-gray-800');
+                    addLog(`[ADMIN] Canceled override for ${cameraId.toUpperCase()}`, 'text-emerald-400 font-bold bg-emerald-900/30 py-1 border-l-2 border-emerald-500 pl-2');
+                } else {
+                    // --- TRIGGERED: RED BACKGROUND HIGHLIGHT ---
+                    activeOverride = cameraId;
+                    const activeBtn = document.getElementById(`btn-${cameraId}`);
+                    if (activeBtn) {
+                        activeBtn.className = `absolute ${activeBtn.className.split('absolute')[1].split('bg-')[0]} bg-emerald-500 text-white px-3 py-1.5 rounded shadow-[0_0_15px_#10b981] text-[10px] font-bold z-20 transition border-2 border-white animate-pulse w-32 tracking-wider`;
+                        activeBtn.innerText = `✅ CLEARING...`;
+                    }
+                    
+                    addLog('-----------------------------------', 'text-gray-800');
+                    addLog(`[COMMAND] ${result.message}`, 'text-red-400 font-bold bg-red-900/30 py-1 border-l-2 border-red-500 pl-2');
+                }
+            } catch (error) { console.error("Override failed", error); }
+        }
+
+        // Camera streams are owned by the live dashboard; the sandbox does not open extra camera streams.
+
+        // ==========================================
+        // 2D MAP vs ANALYTICS TOGGLE LOGIC
+        // ==========================================
+        let historyChartInstance = null;
+
+        function setView(viewName) {
+            const mapContainer = document.getElementById('viewMap');
+            const chartsContainer = document.getElementById('viewCharts');
+            const btnMap = document.getElementById('btnViewMap');
+            const btnCharts = document.getElementById('btnViewCharts');
+
+            if (viewName === 'map') {
+                mapContainer.classList.remove('hidden');
+                chartsContainer.classList.add('hidden');
+                btnMap.className = "bg-indigo-600 px-3 py-1 rounded-full font-bold transition text-white shadow";
+                btnCharts.className = "text-gray-400 hover:text-white px-3 py-1 rounded-full font-bold transition";
+            } else {
+                mapContainer.classList.add('hidden');
+                chartsContainer.classList.remove('hidden');
+                btnCharts.className = "bg-indigo-600 px-3 py-1 rounded-full font-bold transition text-white shadow";
+                btnMap.className = "text-gray-400 hover:text-white px-3 py-1 rounded-full font-bold transition";
+                
+                // Initialize the Line Chart when clicked
+                loadHistoryChart();
+            }
+        }
+
+        async function loadHistoryChart() {
+            try {
+                const response = await fetch('/api/historical_stats');
+                const data = await response.json();
+
+                const hours = Array.from({length: 24}, (_, i) => `${String(i).padStart(2, '0')}:00`);
+
+                if (historyChartInstance) {
+                    historyChartInstance.destroy(); // Clear old chart
+                }
+
+                const ctxHistory = document.getElementById('historyLineChart').getContext('2d');
+                historyChartInstance = new Chart(ctxHistory, {
+                    type: 'line',
+                    data: {
+                        labels: hours,
+                        datasets: [
+                            { label: 'North Road', data: data.north, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', tension: 0.3, fill: true },
+                            { label: 'South Road', data: data.south, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.1)', tension: 0.3, fill: true },
+                            { label: 'East Road', data: data.east, borderColor: '#eab308', backgroundColor: 'rgba(234,179,8,0.1)', tension: 0.3, fill: true },
+                            { label: 'West Road', data: data.west, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', tension: 0.3, fill: true }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top', labels: { color: '#e2e8f0', font: { weight: 'bold' } } },
+                            title: { display: true, text: '30-Day Average Hourly Traffic Profile', color: '#f1f5f9', font: { size: 14, weight: 'bold' } }
+                        },
+                        scales: {
+                            y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' }, title: { display: true, text: 'Average Vehicles', color: '#94a3b8' } },
+                            x: { grid: { display: false }, ticks: { color: '#94a3b8' }, title: { display: true, text: 'Hour of Day', color: '#94a3b8' } }
+                        }
+                    }
+                });
+            } catch (err) {
+                console.error("Error loading historical chart", err);
+            }
+        }
+        
+        // ==========================================
+        // 🎮 SANDBOX SIMULATION PHYSICS ENGINE
+        // ==========================================
+        const sandCanvas = document.getElementById('sandboxCanvas');
+        const sandCtx = sandCanvas.getContext('2d');
+        let sandPaused = false;
+
+        // Sandbox Traffic Light States (Completely independent from Dashboard)
+        let sandLights = { north: "RED", south: "RED", east: "RED", west: "RED", timer: 0, current_phase: "NS" };
+        let sandQueues = { north: 0, south: 0, east: 0, west: 0 };
+        let sandEmergencies = { north: 0, south: 0, east: 0, west: 0 };
+        let lastSandboxStatePayload = '';
+        let sandboxStateSyncInFlight = false;
+        let sandVehicles = { north: [], south: [], east: [], west: [] };
+        let vehicleIdCounter = 1;
+
+        // Vehicle Constants
+        const carClasses = ['Car', 'Motorcycle', 'Van', 'Truck'];
+        const classColors = { 'Car': '#10b981', 'Motorcycle': '#60a5fa', 'Van': '#fb923c', 'Truck': '#a78bfa', 'Ambulance': '#ef4444' };
+        const classMaxSpeeds = { 'Car': 3.5, 'Motorcycle': 4.0, 'Van': 3.0, 'Truck': 2.0, 'Ambulance': 5.0 };
+
+        class SandboxVehicle {
+            constructor(lane, isEmergency = false) {
+                this.id = vehicleIdCounter++;
+                this.lane = lane; // 'north', 'south', 'east', 'west'
+                this.isEmergency = isEmergency;
+                this.class = isEmergency ? 'Ambulance' : carClasses[Math.floor(Math.random() * carClasses.length)];
+                this.color = classColors[this.class];
+                this.speed = 0;
+                this.maxSpeed = classMaxSpeeds[this.class];
+                this.length = (this.class === 'Truck' || this.class === 'Bus') ? 22 : (this.class === 'Motorcycle' ? 10 : 16);
+                
+                // Spawn positions at the edges of the screen
+                if (lane === 'north') { this.x = cx - laneWidth/2; this.y = 0; }
+                else if (lane === 'south') { this.x = cx + laneWidth/2; this.y = 800; }
+                else if (lane === 'east') { this.x = 800; this.y = cy - laneWidth/2; }
+                else if (lane === 'west') { this.x = 0; this.y = cy + laneWidth/2; }
+            }
+
+            update(frontVehicle) {
+                let targetSpeed = this.maxSpeed;
+                let stopLineY = (this.lane === 'north') ? cy - roadWidth/2 : cy + roadWidth/2;
+                let stopLineX = (this.lane === 'west') ? cx - roadWidth/2 : cx + roadWidth/2;
+                
+                // Determine if we need to stop for a Traffic Light
+                let mustStopForLight = false;
+                const currentLight = sandLights[this.lane];
+                if (currentLight === 'RED' || currentLight === 'YELLOW' || currentLight === 'OFF') {
+                    mustStopForLight = true;
+                }
+
+                // Calculate distance to stop line
+                let distToStop = 999;
+                if (this.lane === 'north') distToStop = stopLineY - this.y;
+                else if (this.lane === 'south') distToStop = this.y - stopLineY;
+                else if (this.lane === 'east') distToStop = this.x - stopLineX;
+                else if (this.lane === 'west') distToStop = stopLineX - this.x;
+
+                // 1. Handle Traffic Light Deceleration
+                if (mustStopForLight && distToStop > 0 && distToStop < 150) {
+                    // Smooth braking curve
+                    targetSpeed = Math.min(targetSpeed, (distToStop / 150) * this.maxSpeed);
+                    if (distToStop < 10) targetSpeed = 0; // Absolute stop at line
+                }
+
+                // 2. Handle Car-Following Math (Stop behind the car in front)
+                if (frontVehicle) {
+                    let distToFront = 999;
+                    if (this.lane === 'north') distToFront = (frontVehicle.y - frontVehicle.length) - this.y;
+                    else if (this.lane === 'south') distToFront = this.y - (frontVehicle.y + frontVehicle.length);
+                    else if (this.lane === 'east') distToFront = this.x - (frontVehicle.x + frontVehicle.length);
+                    else if (this.lane === 'west') distToFront = (frontVehicle.x - frontVehicle.length) - this.x;
+
+                    const safeGap = this.length + 15; // Safe gap in pixels
+                    if (distToFront < 100) {
+                        // Brake if approaching the car in front
+                        targetSpeed = Math.min(targetSpeed, ((distToFront - safeGap) / 80) * this.maxSpeed);
+                        if (distToFront < safeGap) targetSpeed = 0; // Complete stop
+                    }
+                }
+
+                // Smoothly adjust speed (Kinematics)
+                if (this.speed < targetSpeed) {
+                    this.speed += 0.15; // Acceleration
+                    if (this.speed > targetSpeed) this.speed = targetSpeed;
+                } else if (this.speed > targetSpeed) {
+                    this.speed -= 0.3; // Deceleration (Brakes are stronger)
+                    if (this.speed < targetSpeed) this.speed = targetSpeed;
+                }
+
+                // Move
+                if (this.lane === 'north') this.y += this.speed;
+                else if (this.lane === 'south') this.y -= this.speed;
+                else if (this.lane === 'east') this.x -= this.speed;
+                else if (this.lane === 'west') this.x += this.speed;
+            }
+
+            draw() {
+                sandCtx.beginPath();
+                if (this.lane === 'north' || this.lane === 'south') {
+                    // Draw vertical box for cars
+                    sandCtx.roundRect(this.x - 6, this.y - this.length/2, 12, this.length, 3);
+                } else {
+                    // Draw horizontal box
+                    sandCtx.roundRect(this.x - this.length/2, this.y - 6, this.length, 12, 3);
+                }
+                sandCtx.fillStyle = this.color;
+                sandCtx.shadowColor = this.color;
+                sandCtx.shadowBlur = 5;
+                sandCtx.fill();
+                sandCtx.shadowBlur = 0; // reset
+
+                // Draw ID text
+                sandCtx.fillStyle = '#FFFFFF';
+                sandCtx.font = 'bold 9px sans-serif';
+                sandCtx.textAlign = 'center';
+                sandCtx.fillText(this.id, this.x, this.y + 3);
+            }
+
+            isOffScreen() {
+                return (this.y > 850 || this.y < -50 || this.x > 850 || this.x < -50);
+            }
+        }
+
+        // ==========================================
+        // UNIFIED SANDBOX TERMINAL LOGGING
+        // ==========================================
+        const sandTerminal = document.getElementById('sandTerminalOutput');
+
+        function addSandLog(text, color = "text-gray-300") {
+            const div = document.createElement('div');
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+            div.className = color;
+            div.innerHTML = `<span class="text-gray-600">[${time}]</span> ${text}`;
+            sandTerminal.appendChild(div);
+            sandTerminal.scrollTop = sandTerminal.scrollHeight; // Auto-scroll
+        }
+
+        // Unified Vehicle Spawner with Styled Terminal Badges!
+        function spawnVehicle(lane, isEmergency) {
+            if (sandPaused) return;
+            if (activeIntersection === 'hang_tuah' && lane === 'west') return;
+            
+            const newVeh = new SandboxVehicle(lane, isEmergency);
+            sandVehicles[lane].push(newVeh);
+            drawSandboxMapOnly();
+
+            // Colored Terminal Badges matching the Digital Twin style
+            if (isEmergency) {
+                addSandLog(`[SPAWN] 🚨 Emergency Ambulance added to ${lane.toUpperCase()} lane! (ID: ${newVeh.id})`, 'text-red-400 font-bold bg-red-950/40 py-0.5 px-2 rounded border-l-2 border-red-500 animate-pulse');
+            } else {
+                addSandLog(`[SPAWN] 🚗 ${newVeh.class} added to ${lane.toUpperCase()} lane. (ID: ${newVeh.id})`, 'text-emerald-400 font-semibold bg-emerald-950/30 py-0.5 px-2 rounded border-l-2 border-emerald-500');
+            }
+        }
+
+        // --- DRAW SANDBOX MAP ---
+        function drawSandboxMapOnly() {
+            sandCtx.clearRect(0, 0, sandCanvas.width, sandCanvas.height);
+            
+            // Draw Roads
+            sandCtx.fillStyle = '#334155';
+            sandCtx.fillRect(cx - roadWidth/2, 0, roadWidth, sandCanvas.height);
+            if (activeIntersection === 'hang_tuah') {
+                sandCtx.fillRect(cx, cy - roadWidth/2, sandCanvas.width/2, roadWidth);
+            } else {
+                sandCtx.fillRect(0, cy - roadWidth/2, sandCanvas.width, roadWidth);
+            }
+
+            // Center
+            sandCtx.fillStyle = '#475569';
+            sandCtx.fillRect(cx - roadWidth/2, cy - roadWidth/2, roadWidth, roadWidth);
+
+            // Yellow Dividers (Tuned strictly for Sandbox Canvas)
+            sandCtx.strokeStyle = '#FBBF24'; sandCtx.lineWidth = 2; sandCtx.setLineDash([20, 20]);
+            sandCtx.beginPath(); sandCtx.moveTo(cx, 0); sandCtx.lineTo(cx, cy - roadWidth/2); sandCtx.stroke();
+            sandCtx.beginPath(); sandCtx.moveTo(cx, cy + roadWidth/2); sandCtx.lineTo(cx, sandCanvas.height); sandCtx.stroke(); // FIXED
+            if (activeIntersection !== 'hang_tuah') {
+                sandCtx.beginPath(); sandCtx.moveTo(0, cy); sandCtx.lineTo(cx - roadWidth/2, cy); sandCtx.stroke();
+            }
+            sandCtx.beginPath(); sandCtx.moveTo(cx + roadWidth/2, cy); sandCtx.lineTo(sandCanvas.width, cy); sandCtx.stroke();
+            sandCtx.setLineDash([]);
+
+            // White Stop Lines
+            sandCtx.strokeStyle = '#FFFFFF'; sandCtx.lineWidth = 6;
+            sandCtx.beginPath(); sandCtx.moveTo(cx - laneWidth, cy - roadWidth/2); sandCtx.lineTo(cx, cy - roadWidth/2); sandCtx.stroke();
+            sandCtx.beginPath(); sandCtx.moveTo(cx, cy + roadWidth/2); sandCtx.lineTo(cx + laneWidth, cy + roadWidth/2); sandCtx.stroke();
+            sandCtx.beginPath(); sandCtx.moveTo(cx + roadWidth/2, cy - laneWidth); sandCtx.lineTo(cx + roadWidth/2, cy); sandCtx.stroke();
+            if (activeIntersection !== 'hang_tuah') {
+                sandCtx.beginPath(); sandCtx.moveTo(cx - roadWidth/2, cy); sandCtx.lineTo(cx - roadWidth/2, cy + laneWidth); sandCtx.stroke();
+            }
+
+            // Road Labels
+            sandCtx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            sandCtx.font = 'bold 40px sans-serif';
+            sandCtx.textAlign = 'center';
+            sandCtx.fillText('NORTH', cx, 60);
+            sandCtx.fillText('SOUTH', cx, sandCanvas.height - 30);
+            sandCtx.fillText('EAST', sandCanvas.width - 90, cy - 80);
+
+            if (activeIntersection !== 'hang_tuah') {
+                sandCtx.save();
+                sandCtx.translate(60, cy);
+                sandCtx.rotate(-Math.PI/2);
+                sandCtx.fillText('WEST', 0, 0);
+                sandCtx.restore();
+            }
+
+            // Draw HTML-Style Lights
+            function updateSandLightUI(cameraId, status) {
+                const lightBox = document.getElementById(`sand-light-${cameraId}`);
+                if(!lightBox) return;
+                lightBox.children[0].className = "w-4 h-4 rounded-full bg-gray-600";
+                lightBox.children[1].className = "w-4 h-4 rounded-full bg-gray-600";
+                lightBox.children[2].className = "w-4 h-4 rounded-full bg-gray-600";
+
+                if (status === "RED") { lightBox.children[0].className = "w-4 h-4 rounded-full bg-red-500 shadow-[0_0_12px_#ef4444]"; } 
+                else if (status === "YELLOW") { lightBox.children[1].className = "w-4 h-4 rounded-full bg-yellow-500 shadow-[0_0_12px_#eab308]"; } 
+                else if (status === "GREEN" || status === "FLASH_GREEN") { lightBox.children[2].className = "w-4 h-4 rounded-full bg-green-500 shadow-[0_0_12px_#22c55e]"; }
+            }
+            updateSandLightUI('north', sandLights.north);
+            updateSandLightUI('south', sandLights.south);
+            updateSandLightUI('east', sandLights.east);
+            updateSandLightUI('west', sandLights.west);
+        }
+
+        async function syncSandboxState(force = false) {
+            if (sandboxStateSyncInFlight) return;
+
+            const payload = {
+                queues: { ...sandQueues },
+                emergencies: { ...sandEmergencies }
+            };
+            const serialized = JSON.stringify(payload);
+            if (!force && serialized === lastSandboxStatePayload) return;
+
+            sandboxStateSyncInFlight = true;
+            try {
+                const response = await fetch('/api/sandbox/update_state', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: serialized
+                });
+                if (!response.ok) throw new Error(`Sandbox state update failed: HTTP ${response.status}`);
+                lastSandboxStatePayload = serialized;
+            } catch (error) {
+                console.error('Sandbox synchronization failed:', error);
+                addSandLog(`[ERROR] Sandbox state sync failed: ${error.message}`, 'text-red-500');
+            } finally {
+                sandboxStateSyncInFlight = false;
+            }
+        }
+
+        // --- SANDBOX LOOP ---
+        function runSandboxEngine() {
+            if (sandPaused) return;
+
+            drawSandboxMapOnly();
+
+            ['north', 'south', 'east', 'west'].forEach(lane => {
+                sandVehicles[lane] = sandVehicles[lane].filter(v => !v.isOffScreen());
+                sandQueues[lane] = 0;
+                sandEmergencies[lane] = 0;
+
+                sandVehicles[lane].forEach((v, index) => {
+                    const frontVehicle = (index === 0) ? null : sandVehicles[lane][index - 1];
+                    v.update(frontVehicle);
+                    v.draw();
+
+                    if (v.isEmergency) sandEmergencies[lane]++;
+
+                    if (v.speed < 0.2) {
+                        const stopY = (lane === 'north') ? cy - roadWidth/2 : cy + roadWidth/2;
+                        const stopX = (lane === 'west') ? cx - roadWidth/2 : cx + roadWidth/2;
+                        if (lane === 'north' && v.y < stopY) sandQueues[lane]++;
+                        else if (lane === 'south' && v.y > stopY) sandQueues[lane]++;
+                        else if (lane === 'east' && v.x > stopX) sandQueues[lane]++;
+                        else if (lane === 'west' && v.x < stopX) sandQueues[lane]++;
+                    }
+                });
+
+                document.getElementById(`sand-q-${lane}`).innerText = sandQueues[lane];
+            });
+
+            requestAnimationFrame(runSandboxEngine);
+        }
+
+        // Synchronize test inputs at a lower rate than the 60 FPS renderer.
+        setInterval(() => syncSandboxState(false), 200);
+
+        // Initialize sandbox engine loop on startup
+        runSandboxEngine();
+        
+        // ==========================================
+        // 5. MASTER POLLING LOOP
+        // ==========================================
+        let lastSandLogLength = 0;
+
+        setInterval(async () => {
+            try {
+                // Fetch All Data (Real + Sandbox) in one single, fast request!
+                const statResponse = await fetch('/api/live_stats');
+                const data = await statResponse.json();
+
+                // Update the Dashboard-style Traffic Lights (All Pages)
+                ['north', 'south', 'east', 'west'].forEach(cam => {
+                    updateLightUI(cam, data.lights[cam], 'dash-light');
+                    updateLightUI(cam, data.lights[cam], 'sim-light');
+                    
+                    // Python is the authoritative source for sandbox traffic-light decisions.
+                    sandLights[cam] = data.sandbox_lights[cam];
+                    
+                    document.getElementById(`${cam.charAt(0)}-car`).innerText = getSafe(data.stats[cam], 'Car');
+                    document.getElementById(`${cam.charAt(0)}-mot`).innerText = getSafe(data.stats[cam], 'Motorcycle');
+                    document.getElementById(`${cam.charAt(0)}-trk`).innerText = getSafe(data.stats[cam], 'Truck');
+                    document.getElementById(`${cam.charAt(0)}-bus`).innerText = getSafe(data.stats[cam], 'Bus');
+                    document.getElementById(`${cam.charAt(0)}-van`).innerText = getSafe(data.stats[cam], 'Van');
+                    document.getElementById(`${cam.charAt(0)}-emg`).innerText = getSafe(data.stats[cam], 'Ambulance') + getSafe(data.stats[cam], 'Fire_Truck');
+                    
+                    // Display current queues (Dynamic from python)
+                    document.getElementById(`q-${cam}`).innerText = data.queue[cam] || 0;
+                    // Sandbox queue counters are rendered from the local simulator state; Python receives the same state via /api/sandbox/update_state.
+                });
+
+                // Refresh sandbox light indicators from Python's authoritative state.
+                drawSandboxMapOnly();
+
+                let tData = [];
+                ['north', 'south', 'east', 'west'].forEach(cam => {
+                    let total = 0; Object.values(data.stats[cam]).forEach(v => total += v); tData.push(total);
+                });
+                trafficChart.data.datasets[0].data = tData; trafficChart.update();
+
+                const violList = document.getElementById('violationList');
+                if (data.stats.recent_violations.length > 0) {
+                    violList.innerHTML = '';
+                    data.stats.recent_violations.forEach(viol => {
+                        const li = document.createElement('li'); li.innerText = viol; violList.appendChild(li);
+                    });
+                }
+
+                // Simulation Update
+                const posResponse = await fetch('/api/live_positions');
+                const positions = await posResponse.json();
+                drawMap(); if (positions) drawVehicles(positions);
+
+                // Update Digital Twin Terminal Headers
+                document.getElementById('termPhase').innerText = data.lights.current_phase || "--";
+                document.getElementById('termTimer').innerText = data.lights.timer || "00";
+
+                // --- NEW: UPDATE SANDBOX TERMINAL HEADERS ---
+                document.getElementById('sandTermPhase').innerText = data.sandbox_lights.current_phase || "--";
+                document.getElementById('sandTermTimer').innerText = data.sandbox_lights.timer || "00";
+
+                // --- NEW: SYSTEM MODE AWARE TERMINAL LOGGING ---
+                if ((data.lights.current_phase !== lastPhase || data.lights.mode !== lastMode) && data.lights.current_phase !== undefined) {
+                    
+                    addLog('-----------------------------------', 'text-gray-800');
+
+                    if (data.lights.mode === "NIGHT_MODE") {
+                        addLog(`[SYSTEM MODE: NIGHT MODE] All queues 0. Resting on NORTH Green.`, 'text-blue-400 font-bold bg-blue-900/30 py-1 border-l-2 border-blue-500 pl-2');
+                    } 
+                    else if (data.lights.mode === "EMERGENCY_OVERRIDE") {
+                        addLog(`[SYSTEM MODE: EMERGENCY] Preemption active for ${data.lights.current_phase}!`, 'text-red-400 font-bold bg-red-900/30 py-1 border-l-2 border-red-500 pl-2');
+                    } 
+                    else if (data.lights.mode === "SMART_SKIP") {
+                        addLog(`[SYSTEM MODE: SMART SKIP] Skipping empty lane.`, 'text-yellow-500/80 italic');
+                    } 
+                    else { // NORMAL_FUZZY
+                        addLog(`[SYSTEM MODE: NORMAL FUZZY] Phase Shift: ${data.lights.current_phase}`, 'text-purple-400 font-bold');
+                        addLog(`[DATA] Queue: N:${data.queue.north} | S:${data.queue.south} | E:${data.queue.east} | W:${data.queue.west}`, 'text-gray-400');
+                    }
+
+                    lastPhase = data.lights.current_phase;
+                    lastMode = data.lights.mode;
+                }
+                if (data.lights.timer > lastTimer && data.lights.timer > 5) {
+                    addLog(`[DECISION] Optimal Green Time Allocated: ${data.lights.timer}s.`, 'text-blue-400 font-bold');
+                }
+                lastTimer = data.lights.timer;
+
+                // --- NEW: UPDATE SANDBOX TERMINAL WITH PYTHON'S LOGS ---
+                const sandLogs = data.sandbox_logs;
+                if (sandLogs && sandLogs.length > lastSandLogLength) {
+                    // Print any new logs generated by the Python Sandbox engine
+                    for (let i = lastSandLogLength; i < sandLogs.length; i++) {
+                        addSandLog(sandLogs[i].text, sandLogs[i].color);
+                    }
+                    lastSandLogLength = sandLogs.length;
+                }
+
+            } catch (err) {
+                console.error('Master polling loop failed:', err);
+            }
+        }, 250);
+
+        // --------------------------------------------------------
+        // SETUP & CALIBRATION LOGIC
+        // --------------------------------------------------------
+        const cameraSelect = document.getElementById('cameraSelect');
+        const videoUpload = document.getElementById('videoUpload');
+        const videoPlayer = document.getElementById('videoPlayer');
+        const drawCanvas = document.getElementById('drawCanvas');
+        const drawCtx = drawCanvas.getContext('2d');
+        const coordOutput = document.getElementById('coordOutput');
+
+        let currentCam = 'north'; let currentTool = 'zone'; 
+        const createEmptyConfig = () => ({ zone: [], calibBox: [], lineA: [], lineB: [], stopLine: [], distAB: 15, distCalib: 20, distWidth: 3.5 });
+        // FIX: Nest the master configuration under the intersection IDs!
+        let masterConfig = { 
+            tun_perak: { north: createEmptyConfig(), south: createEmptyConfig(), east: createEmptyConfig(), west: createEmptyConfig() }, 
+            hang_tuah: { north: createEmptyConfig(), south: createEmptyConfig(), east: createEmptyConfig(), west: createEmptyConfig() } 
+        };
+
+        const toolBtns = {
+            'zone': document.getElementById('toolZone'), 'calibBox': document.getElementById('toolCalib'),
+            'lineA': document.getElementById('toolLineA'), 'lineB': document.getElementById('toolLineB'), 'stopLine': document.getElementById('toolStopLine')
+        };
+
+        Object.keys(toolBtns).forEach(tool => {
+            toolBtns[tool].addEventListener('click', () => {
+                currentTool = tool;
+                Object.values(toolBtns).forEach(btn => { btn.classList.replace('ring-2', 'opacity-60'); btn.classList.remove('ring-offset-1'); });
+                toolBtns[tool].classList.replace('opacity-60', 'ring-2'); toolBtns[tool].classList.add('ring-offset-1');
+            });
+        });
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('/api/get_config');
+                if (response.ok) {
+                    const existingConfig = await response.json();
+                    if (existingConfig && existingConfig.north) masterConfig = existingConfig;
+                }
+            } catch (error) { console.log("No config found, using defaults."); }
+            cameraSelect.dispatchEvent(new Event('change'));
+        });
+
+        cameraSelect.addEventListener('change', function(e) {
+            currentCam = e.target.value;
+            document.getElementById('jsonCamLabel').innerText = currentCam.charAt(0).toUpperCase() + currentCam.slice(1);
+            
+            // Safety check to ensure nested arrays exist
+            if (!masterConfig[activeIntersection]) masterConfig[activeIntersection] = {};
+            if (!masterConfig[activeIntersection][currentCam]) masterConfig[activeIntersection][currentCam] = createEmptyConfig();
+
+            const c = masterConfig[activeIntersection][currentCam];
+            document.getElementById('distAB').value = c.distAB || 15;
+            document.getElementById('distCalib').value = c.distCalib || 20;
+            document.getElementById('distWidth').value = c.distWidth || 3.5;
+
+            videoPlayer.classList.add('hidden');
+            
+            // FIX: Load the correct background image with the activeIntersection prefix!
+            const imgElement = document.getElementById('bgImage');
+            imgElement.onerror = function() {
+                this.src = 'https://via.placeholder.com/1280x720/1f2937/FFFFFF/?text=Upload+Video+to+Initialize+Camera';
+                drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height); drawShapes();
+            };
+            imgElement.src = `/static/bg_${activeIntersection}_${currentCam}.jpg?t=${new Date().getTime()}`;
+            
+            drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height); drawShapes();
+        });
+
+        videoUpload.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                videoPlayer.src = URL.createObjectURL(file);
+                videoPlayer.classList.remove('hidden');
+                videoPlayer.addEventListener('loadeddata', function() {
+                    const snapCanvas = document.createElement('canvas');
+                    snapCanvas.width = 1280; snapCanvas.height = 720;
+                    snapCanvas.getContext('2d').drawImage(videoPlayer, 0, 0, 1280, 720);
+                    // FIX: Pass the activeIntersection in the URL!
+                    fetch(`/api/save_background/${activeIntersection}/${currentCam}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ image: snapCanvas.toDataURL('image/jpeg') })
+                    });
+                }, { once: true });
+            }
+        });
+
+        drawCanvas.addEventListener('mousedown', function(e) {
+            const rect = drawCanvas.getBoundingClientRect();
+            const x = Math.round((e.clientX - rect.left) * (1280 / rect.width));
+            const y = Math.round((e.clientY - rect.top) * (720 / rect.height));
+
+            let maxPoints = (currentTool === 'zone' || currentTool === 'calibBox') ? 4 : 2;
+            
+            // FIX: Access the nested array using [activeIntersection]!
+            if (masterConfig[activeIntersection][currentCam][currentTool].length < maxPoints) {
+                masterConfig[activeIntersection][currentCam][currentTool].push([x, y]); 
+                drawShapes();
+            }
+        });
+
+// FIX: Updated to extract config for the active intersection
+        function drawShapes() {
+            drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height); 
+            const c = masterConfig[activeIntersection][currentCam]; // <-- Changed from currentCam to activeIntersection[currentCam]
+            
+            if (c.zone.length > 0) drawPath(c.zone, 'rgba(34, 197, 94, 0.2)', '#22c55e', c.zone.length === 4);
+            if (c.calibBox.length > 0) drawPath(c.calibBox, 'rgba(168, 85, 247, 0.2)', '#A855F7', c.calibBox.length === 4);
+            if (c.lineA.length > 0) drawPath(c.lineA, null, '#3B82F6', false);
+            if (c.lineB.length > 0) drawPath(c.lineB, null, '#06B6D4', false);
+            if (c.stopLine.length > 0) drawPath(c.stopLine, null, '#EF4444', false);
+            updateOutput();
+        }
+
+        // NOTE: This function remains 100% IDENTICAL to your original (No changes needed)
+        function drawPath(points, fillColor, strokeColor, closePath) {
+            drawCtx.beginPath(); drawCtx.moveTo(points[0][0], points[0][1]);
+            for (let i = 1; i < points.length; i++) drawCtx.lineTo(points[i][0], points[i][1]);
+            if (closePath) { drawCtx.closePath(); if (fillColor) { drawCtx.fillStyle = fillColor; drawCtx.fill(); } }
+            drawCtx.strokeStyle = strokeColor; drawCtx.lineWidth = 3; drawCtx.stroke();
+            drawCtx.fillStyle = 'white';
+            points.forEach(p => { drawCtx.beginPath(); drawCtx.arc(p[0], p[1], 4, 0, 2 * Math.PI); drawCtx.fill(); drawCtx.stroke(); });
+        }
+
+        // FIX: Updated to clear the nested array
+        document.getElementById('clearBtn').addEventListener('click', () => { 
+            masterConfig[activeIntersection][currentCam][currentTool] = []; // <-- Added activeIntersection
+            drawShapes(); 
+        });
+
+        // FIX: Updated to write the text box values to the nested array
+        function updateOutput() {
+            masterConfig[activeIntersection][currentCam].distAB = parseFloat(document.getElementById('distAB').value);
+            masterConfig[activeIntersection][currentCam].distCalib = parseFloat(document.getElementById('distCalib').value);
+            masterConfig[activeIntersection][currentCam].distWidth = parseFloat(document.getElementById('distWidth').value);
+            coordOutput.textContent = JSON.stringify(masterConfig, null, 2);
+        }
+
+        document.getElementById('saveConfigBtn').addEventListener('click', async () => {
+            // FIX: Validate the active intersection's North camera
+            const n = masterConfig[activeIntersection].north;
+            if (!n || n.zone.length < 4 || n.lineA.length < 2) { 
+                alert(`⚠️ ${activeIntersection.toUpperCase()} North Camera must be configured before saving!`); 
+                return; 
+            }
+            try {
+                const response = await fetch('/api/save_config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(masterConfig) });
+                if ((await response.json()).status === "success") alert("✅ All Configurations Saved!");
+            } catch (e) { alert("❌ Error saving to server."); }
+        });
+
+        document.getElementById('distAB').addEventListener('input', updateOutput);
+        document.getElementById('distCalib').addEventListener('input', updateOutput);
+        document.getElementById('distWidth').addEventListener('input', updateOutput);
+
+    </script>
+</body>
+</html>
